@@ -1,0 +1,92 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #1c1917;
+  background: #fafaf9;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 20px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e7e5e4;
+}
+h1 { margin: 0; font-size: 20px; }
+.top p, .muted { margin: 4px 0 0; color: #78716c; font-size: 13px; }
+main { max-width: 880px; margin: 0 auto; padding: 16px 24px 40px; }
+input[type="search"] {
+  width: 100%;
+  border: 1px solid #d6d3d1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+}
+.row, .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button {
+  border: 1px solid #d6d3d1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+button.primary { background: #0f766e; color: #fff; border-color: #0f766e; }
+button.ghost, button.danger { color: #78716c; }
+button.danger { color: #b91c1c; }
+a.primary-link {
+  display: inline-flex;
+  align-items: center;
+  background: #0f766e;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.card {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 14px;
+}
+.card h2 { margin: 0; font-size: 16px; }
+.card-title { display: block; font-size: 16px; font-weight: 650; line-height: 1.35; }
+.card-toggle {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.card-toggle[aria-expanded="true"] .card-title { color: #0f766e; }
+.facts { display: grid; grid-template-columns: 64px 1fr; gap: 6px 10px; margin: 12px 0 0; }
+.facts dt, .facts dd { margin: 0; font-size: 13px; line-height: 1.45; }
+.facts dt { color: #78716c; }
+.detail[hidden] { display: none; }
+.sub { margin: 4px 0 0; color: #44403c; font-size: 13px; }
+.desc {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  color: #44403c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.empty {
+  margin-top: 16px;
+  padding: 20px;
+  background: #fff;
+  border: 1px dashed #d6d3d1;
+  border-radius: 12px;
+  color: #78716c;
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>收藏的岗位</title>
+    <link rel="stylesheet" href="favorites.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>收藏的岗位</h1>
+        <p id="count">正在读取本地数据库…</p>
+      </div>
+      <div class="row">
+        <button id="export-md" type="button">导出 Markdown</button>
+        <button id="export-json" type="button">导出 JSON</button>
+        <button id="clear" class="ghost" type="button">清空</button>
+      </div>
+    </header>
+    <main>
+      <input id="query" type="search" placeholder="搜索职位、公司或原始链接" />
+      <div id="list"></div>
+    </main>
+    <script src="db.js"></script>
+    <script src="extract.js"></script>
+    <script src="favorites.js"></script>
+  </body>
+</html>
