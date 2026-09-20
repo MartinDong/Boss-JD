@@ -77,8 +77,8 @@ button.ghost { color: #78716c; }
   text-decoration: none;
 }
 .fav-detail { margin-top: 8px; }
-.facts { display: grid; grid-template-columns: 52px 1fr; gap: 4px 8px; margin: 0 0 8px; }
+.facts { display: grid; grid-template-columns: 72px 1fr; gap: 4px 8px; margin: 8px 0; }
+.block h3 { margin: 10px 0 0; font-size: 12px; }
 .facts dt, .facts dd { margin: 0; font-size: 12px; line-height: 1.45; }
 .facts dt { color: #78716c; }
-.fav-detail .desc { max-height: 140px; }
 button.danger { color: #b91c1c; }

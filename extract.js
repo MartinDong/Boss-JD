@@ -106,7 +106,7 @@
   function companyBlock() {
     const rootEl = first([".sider-company", ".job-detail-company", ".company-info"]);
     if (!rootEl) {
-      return { company: "", industry: "", financing: "", scale: "" };
+      return { company: "", industry: "", financing: "", scale: "", companyAddress: "" };
     }
     const company = textOf(
       rootEl.querySelector(
@@ -123,7 +123,10 @@
     const rest = bits.slice(1);
     const scale = rest.find((item) => /人|规模/.test(item)) || "";
     const financing = rest.find((item) => item !== scale) || "";
-    return { company, industry, financing, scale };
+    const companyAddress = textOf(
+      rootEl.querySelector(".company-location, .location-address, .address, .company-address")
+    );
+    return { company, industry, financing, scale, companyAddress };
   }
 
   function recruiterBlock() {
@@ -147,6 +150,18 @@
         ".job-address .address",
       ])
     );
+  }
+
+  function distanceText() {
+    const labeled = [...document.querySelectorAll(
+      ".location-distance, .job-location-distance, .distance, [class*='distance']"
+    )]
+      .map(textOf)
+      .find((item) => item && item.length <= 40);
+    if (labeled) return labeled;
+    const area = textOf(first([".job-location", ".job-address", ".job-detail-location"]));
+    const match = area.match(/距(?:你|您|我|离)[^\n]{0,24}|直线距离[^\n]{0,24}|距离当前位置[^\n]{0,24}/);
+    return match ? match[0].trim() : "";
   }
 
   function updatedAt() {
@@ -195,6 +210,7 @@
     const meta = classifyMeta(metaParts());
     const company = companyBlock();
     const recruiter = recruiterBlock();
+    const address = addressText();
     const job = {
       ok: true,
       jobId: jobIdFromUrl(location.href),
@@ -212,15 +228,86 @@
       industry: company.industry,
       financing: company.financing,
       scale: company.scale,
+      companyAddress: company.companyAddress || address,
+      distance: distanceText(),
       recruiter: recruiter.recruiter,
       recruiterTitle: recruiter.recruiterTitle,
       recruiterActive: recruiter.recruiterActive,
-      address: addressText(),
+      address,
       updatedAt: updatedAt(),
       url: location.href.split("#")[0],
       extractedAt: new Date().toISOString(),
     };
     return job;
+  }
+
+  function filled(rows) {
+    return rows.filter(([, value]) => value);
+  }
+
+  function detailSections(job) {
+    return [
+      {
+        title: "公司信息",
+        rows: filled([
+          ["名称", job.company],
+          ["位置", job.companyAddress || job.address],
+          ["距我", job.distance],
+          ["行业", job.industry],
+          ["融资", job.financing],
+          ["规模", job.scale],
+        ]),
+      },
+      {
+        title: "岗位信息",
+        rows: filled([
+          ["薪资", job.salary],
+          ["城市", job.location],
+          ["经验", job.experience],
+          ["学历", job.education],
+          ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
+          ["活跃", job.recruiterActive],
+          ["标签", (job.tags || []).join("、")],
+          ["更新", job.updatedAt],
+        ]),
+      },
+    ];
+  }
+
+  function appendDetails(parent, job) {
+    detailSections(job).forEach((section) => {
+      if (!section.rows.length) return;
+      const block = document.createElement("section");
+      block.className = "block";
+      const heading = document.createElement("h3");
+      heading.textContent = section.title;
+      const list = document.createElement("dl");
+      list.className = "facts";
+      section.rows.forEach(([label, value]) => {
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const detail = document.createElement("dd");
+        detail.textContent = value;
+        list.append(term, detail);
+      });
+      block.append(heading, list);
+      parent.append(block);
+    });
+    const block = document.createElement("section");
+    block.className = "block";
+    const heading = document.createElement("h3");
+    heading.textContent = "职位描述";
+    const desc = document.createElement("div");
+    desc.className = "desc";
+    desc.textContent = job.description || "（没有职位描述）";
+    block.append(heading, desc);
+    parent.append(block);
+    if (job.salaryNote) {
+      const note = document.createElement("p");
+      note.className = "note";
+      note.textContent = job.salaryNote;
+      parent.append(note);
+    }
   }
 
   function lines(job) {
@@ -230,12 +317,13 @@
       ["经验", job.experience],
       ["学历", job.education],
       ["公司", job.company],
+      ["公司位置", job.companyAddress || job.address],
+      ["距我", job.distance],
       ["行业", job.industry],
       ["融资", job.financing],
       ["规模", job.scale],
       ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
       ["活跃", job.recruiterActive],
-      ["地址", job.address],
       ["标签", (job.tags || []).join("、")],
       ["页面更新", job.updatedAt],
       ["链接", job.url],
@@ -259,5 +347,7 @@
     extractJob,
     toMarkdown,
     fileStem,
+    detailSections,
+    appendDetails,
   };
 })(globalThis);

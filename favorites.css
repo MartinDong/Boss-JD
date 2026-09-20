@@ -70,7 +70,8 @@ a.primary-link {
   color: inherit;
 }
 .card-toggle[aria-expanded="true"] .card-title { color: #0f766e; }
-.facts { display: grid; grid-template-columns: 64px 1fr; gap: 6px 10px; margin: 12px 0 0; }
+.block h3 { margin: 12px 0 0; font-size: 13px; }
+.facts { display: grid; grid-template-columns: 72px 1fr; gap: 6px 10px; margin: 8px 0 0; }
 .facts dt, .facts dd { margin: 0; font-size: 13px; line-height: 1.45; }
 .facts dt { color: #78716c; }
 .detail[hidden] { display: none; }

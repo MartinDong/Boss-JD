@@ -61,29 +61,14 @@ function render() {
       el(
         "p",
         "sub",
-        [job.company, job.salary, job.location, formatTime(job.savedAt) ? `收藏于 ${formatTime(job.savedAt)}` : ""]
+        [job.company, job.salary, job.distance, formatTime(job.savedAt) ? `收藏于 ${formatTime(job.savedAt)}` : ""]
           .filter(Boolean)
           .join(" · ")
       )
     );
     const detail = el("div", "detail");
     detail.hidden = true;
-    const rowsMeta = [
-      ["经验", job.experience],
-      ["学历", job.education],
-      ["行业", job.industry],
-      ["融资", job.financing],
-      ["规模", job.scale],
-      ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
-      ["地址", job.address],
-      ["标签", (job.tags || []).join("、")],
-    ].filter(([, value]) => value);
-    if (rowsMeta.length) {
-      const list = el("dl", "facts");
-      rowsMeta.forEach(([label, value]) => list.append(el("dt", "", label), el("dd", "", value)));
-      detail.append(list);
-    }
-    detail.append(el("div", "desc", job.description || "（没有保存职位描述）"));
+    api.appendDetails(detail, job);
     head.addEventListener("click", () => {
       detail.hidden = !detail.hidden;
       head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");

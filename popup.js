@@ -63,7 +63,7 @@ function renderFavorite(job, box) {
   main.type = "button";
   main.setAttribute("aria-expanded", "false");
   main.append(el("strong", "", job.title || "未命名岗位"));
-  main.append(el("span", "", [job.company, job.salary].filter(Boolean).join(" · ") || "查看详情"));
+  main.append(el("span", "", [job.company, job.salary, job.distance].filter(Boolean).join(" · ") || "查看详情"));
   const detail = el("div", "fav-detail");
   detail.hidden = true;
   fillFavoriteDetail(detail, job);
@@ -83,23 +83,7 @@ function renderFavorite(job, box) {
 }
 
 function fillFavoriteDetail(detail, job) {
-  const rows = [
-    ["地点", job.location],
-    ["经验", job.experience],
-    ["学历", job.education],
-    ["公司", [job.company, job.industry, job.financing, job.scale].filter(Boolean).join(" · ")],
-    ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
-    ["地址", job.address],
-    ["标签", (job.tags || []).join("、")],
-  ].filter(([, value]) => value);
-  if (rows.length) {
-    const list = el("dl", "facts");
-    rows.forEach(([label, value]) => {
-      list.append(el("dt", "", label), el("dd", "", value));
-    });
-    detail.append(list);
-  }
-  detail.append(el("div", "desc", job.description || "（没有保存职位描述）"));
+  globalThis.BossJdExtract.appendDetails(detail, job);
 }
 
 function appendOpenJob(parent, url) {

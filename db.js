@@ -14,6 +14,8 @@
     "industry",
     "financing",
     "scale",
+    "companyAddress",
+    "distance",
     "recruiter",
     "recruiterTitle",
     "recruiterActive",

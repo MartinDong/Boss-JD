@@ -55,7 +55,7 @@
           right: 0;
           height: 100%;
           height: 100dvh;
-          width: min(416px, calc(100vw - 8px));
+          width: min(560px, calc(100vw - 48px));
           transform: translateX(calc(100% - 36px));
           transition: transform 180ms ease-out;
           pointer-events: none;
@@ -64,10 +64,22 @@
           padding-right: env(safe-area-inset-right);
         }
         .shell.open { transform: translateX(0); }
-        .tab, .panel { pointer-events: auto; }
         @media (prefers-reduced-motion: reduce) {
           .shell { transition: none; }
         }
+        .tab, .panel, .resizer { pointer-events: auto; }
+        .shell.resizing { transition: none; }
+        .resizer {
+          position: absolute;
+          top: 0;
+          left: 36px;
+          width: 8px;
+          height: 100%;
+          cursor: ew-resize;
+          z-index: 3;
+          pointer-events: auto;
+        }
+        .resizer:hover, .shell.resizing .resizer { background: rgba(15, 118, 110, 0.28); }
         .tab {
           position: absolute;
           left: 0;
@@ -130,9 +142,9 @@
         }
         .facts {
           display: grid;
-          grid-template-columns: 64px 1fr;
+          grid-template-columns: 72px 1fr;
           gap: 8px 12px;
-          margin: 16px 0 0;
+          margin: 8px 0 0;
         }
         .facts dt { margin: 0; color: #78716c; font-size: 12px; }
         .facts dd { margin: 0; font-size: 13px; line-height: 1.45; word-break: break-word; }
@@ -207,10 +219,11 @@
           text-decoration: none;
         }
         .fav-detail { margin-top: 8px; }
-        .fav-detail .desc { margin-top: 8px; max-height: 180px; overflow: auto; }
+        .fav-detail .desc { margin-top: 8px; }
       </style>
       <div class="shell" id="shell">
         <button class="tab" id="toggle" type="button" aria-expanded="false" aria-controls="panel">岗位</button>
+        <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" aria-label="拖动调整侧边栏宽度"></div>
         <section class="panel" id="panel" aria-label="岗位工具" inert>
           <header class="head">
             <div>
@@ -231,11 +244,80 @@
     `;
     (document.documentElement).appendChild(host);
     bind(shadow);
+    applyWidth(shadow, panelWidth);
+    readStoredWidth().then((width) => {
+      if (host.isConnected) applyWidth(shadow, width);
+    });
     if (panelOpen || readOpen()) openPanel(shadow);
     return host;
   }
 
-  function bind(shadow) {
+  const WIDTH_KEY = "bjd_panel_width";
+  const DEFAULT_WIDTH = 560;
+  const MIN_WIDTH = 420;
+  let panelWidth = DEFAULT_WIDTH;
+
+  function clampWidth(value) {
+    const max = Math.min(840, Math.max(MIN_WIDTH, window.innerWidth - 80));
+    const number = Number(value);
+    if (!Number.isFinite(number)) return Math.min(DEFAULT_WIDTH, max);
+    return Math.round(Math.min(max, Math.max(MIN_WIDTH, number)));
+  }
+
+  function applyWidth(shadow, width) {
+    panelWidth = clampWidth(width);
+    const shell = shadow?.getElementById?.("shell");
+    if (!shell) return;
+    shell.style.width = `${panelWidth}px`;
+    if (panelOpen) shiftPage(true, shell);
+  }
+
+  async function readStoredWidth() {
+    try {
+      if (globalThis.chrome?.storage?.local) {
+        const data = await chrome.storage.local.get(WIDTH_KEY);
+        if (data[WIDTH_KEY]) return clampWidth(data[WIDTH_KEY]);
+      }
+    } catch {
+      /* 读不到已保存宽度时用默认值。 */
+    }
+    return DEFAULT_WIDTH;
+  }
+
+  function saveWidth(width) {
+    panelWidth = clampWidth(width);
+    if (!globalThis.chrome?.storage?.local) return;
+    chrome.storage.local.set({ [WIDTH_KEY]: panelWidth }).catch(() => {});
+  }
+
+  function bindResize(shadow) {
+    const resizer = shadow.getElementById("resizer");
+    const shell = shadow.getElementById("shell");
+    if (!resizer || !shell) return;
+    resizer.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = shell.getBoundingClientRect().width;
+      shell.classList.add("resizing");
+      const move = (moveEvent) => {
+        applyWidth(shadow, startWidth + (startX - moveEvent.clientX));
+      };
+      const up = () => {
+        shell.classList.remove("resizing");
+        window.removeEventListener("pointermove", move);
+        saveWidth(panelWidth);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up, { once: true });
+    });
+    resizer.addEventListener("dblclick", () => {
+      applyWidth(shadow, DEFAULT_WIDTH);
+      saveWidth(DEFAULT_WIDTH);
+    });
+  }
+    function bind(shadow) {
+    bindResize(shadow);
     shadow.getElementById("toggle")?.addEventListener("click", () => {
       if (panelOpen) closePanel(shadow);
       else openPanel(shadow);
@@ -289,7 +371,7 @@
       body.dataset.bjdBox = body.style.boxSizing || "";
       body.dataset.bjdOverflow = body.style.overflowX || "";
     }
-    const width = Math.max(280, Math.ceil(shell?.getBoundingClientRect().width || 416));
+    const width = Math.max(MIN_WIDTH, Math.ceil(shell?.getBoundingClientRect().width || DEFAULT_WIDTH));
     body.style.boxSizing = "border-box";
     body.style.width = `calc(100vw - ${width}px)`;
     body.style.maxWidth = `calc(100vw - ${width}px)`;
@@ -431,36 +513,12 @@
     const title = document.createElement("strong");
     title.textContent = job.title || "未命名岗位";
     const meta = document.createElement("span");
-    meta.textContent = [job.company, job.salary].filter(Boolean).join(" · ") || "查看详情";
+    meta.textContent = [job.company, job.salary, job.distance].filter(Boolean).join(" · ") || "查看详情";
     main.append(title, meta);
     const detail = document.createElement("div");
     detail.className = "fav-detail";
     detail.hidden = true;
-    const rows = [
-      ["地点", job.location],
-      ["经验", job.experience],
-      ["学历", job.education],
-      ["公司", [job.company, job.industry, job.financing, job.scale].filter(Boolean).join(" · ")],
-      ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
-      ["地址", job.address],
-      ["标签", (job.tags || []).join("、")],
-    ].filter(([, value]) => value);
-    if (rows.length) {
-      const list = document.createElement("dl");
-      list.className = "facts";
-      rows.forEach(([label, value]) => {
-        const term = document.createElement("dt");
-        term.textContent = label;
-        const desc = document.createElement("dd");
-        desc.textContent = value;
-        list.append(term, desc);
-      });
-      detail.append(list);
-    }
-    const text = document.createElement("div");
-    text.className = "desc";
-    text.textContent = job.description || "（没有保存职位描述）";
-    detail.append(text);
+    globalThis.BossJdExtract?.appendDetails(detail, job);
     main.addEventListener("click", () => {
       const willOpen = detail.hidden;
       body.querySelectorAll(".fav-detail").forEach((node) => {
@@ -507,60 +565,7 @@
       salary.textContent = job.salary;
       body.append(salary);
     }
-
-    const facts = [
-      ["地点", job.location],
-      ["经验", job.experience],
-      ["学历", job.education],
-      ["公司", job.company],
-      ["行业", job.industry],
-      ["融资", job.financing],
-      ["规模", job.scale],
-      ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
-      ["活跃", job.recruiterActive],
-      ["地址", job.address],
-    ].filter(([, value]) => value);
-    if (facts.length) {
-      const list = document.createElement("dl");
-      list.className = "facts";
-      facts.forEach(([label, value]) => {
-        const term = document.createElement("dt");
-        term.textContent = label;
-        const detail = document.createElement("dd");
-        detail.textContent = value;
-        list.append(term, detail);
-      });
-      body.append(list);
-    }
-    if (job.tags?.length) {
-      const chips = document.createElement("div");
-      chips.className = "chips";
-      chips.style.marginTop = "12px";
-      job.tags.forEach((tag) => {
-        const chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = tag;
-        chips.append(chip);
-      });
-      body.append(chips);
-    }
-
-    const block = document.createElement("section");
-    block.className = "block";
-    const heading = document.createElement("h3");
-    heading.textContent = "职位描述";
-    const desc = document.createElement("div");
-    desc.className = "desc";
-    desc.textContent = job.description || "（页面上没有读到职位描述）";
-    block.append(heading, desc);
-    body.append(block);
-
-    if (job.salaryNote) {
-      const note = document.createElement("p");
-      note.className = "note";
-      note.textContent = job.salaryNote;
-      body.append(note);
-    }
+    globalThis.BossJdExtract?.appendDetails(body, job);
 
     foot.hidden = false;
     const buttons = [
