@@ -131,15 +131,22 @@ function render() {
       el(
         "p",
         "sub",
-        [
-          job.company,
-          job.salary,
-          job.distance,
+        (
+          (globalThis.BossJdExtract?.summaryLine ? globalThis.BossJdExtract.summaryLine(job) : "") ||
+          [
+            job.company,
+            job.salary,
+            job.distance,
+            job.applyStatus ? `状态：${job.applyStatus}` : "",
+            formatTime(job.savedAt) ? `收藏于 ${formatTime(job.savedAt)}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        ) + [
+          "",
           job.applyStatus ? `状态：${job.applyStatus}` : "",
           formatTime(job.savedAt) ? `收藏于 ${formatTime(job.savedAt)}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ")
+        ].filter(Boolean).join(" · ")
       )
     );
     const detail = el("div", "detail");

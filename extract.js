@@ -32,23 +32,33 @@
     return /[\uE000-\uF8FF]/.test(value);
   }
 
+  function splitMetaParts(value) {
+    return String(value || "")
+      .split(/[·•|]|\s{2,}|\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   function classifyMeta(parts) {
     const location = [];
     let experience = "";
     let education = "";
-    parts.forEach((part) => {
-      if (!experience && EXP_RE.test(part)) {
-        experience = part;
-        return;
-      }
-      if (!education && DEGREE_RE.test(part)) {
-        education = part;
-        return;
-      }
-      location.push(part);
+    parts.forEach((rawPart) => {
+      const pieces = splitMetaParts(rawPart);
+      pieces.forEach((part) => {
+        if (!experience && EXP_RE.test(part)) {
+          experience = part;
+          return;
+        }
+        if (!education && DEGREE_RE.test(part)) {
+          education = part;
+          return;
+        }
+        location.push(part);
+      });
     });
     return {
-      location: location.join(" · "),
+      location: [...new Set(location)].join(" · "),
       experience,
       education,
     };
@@ -256,6 +266,8 @@
           ["行业", job.industry],
           ["融资", job.financing],
           ["规模", job.scale],
+          ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
+          ["活跃", job.recruiterActive],
         ]),
       },
       {
@@ -265,8 +277,6 @@
           ["城市", job.location],
           ["经验", job.experience],
           ["学历", job.education],
-          ["招聘者", [job.recruiter, job.recruiterTitle].filter(Boolean).join(" · ")],
-          ["活跃", job.recruiterActive],
           ["标签", (job.tags || []).join("、")],
           ["更新", job.updatedAt],
         ]),
@@ -338,6 +348,17 @@
     return `# ${job.title || "未命名岗位"}\n\n${head}\n\n## 职位描述\n\n${job.description || "（页面上没有读到职位描述）"}\n`;
   }
 
+  function summaryLine(job) {
+    const parts = [
+      job.salary,
+      job.location,
+      [job.experience, job.education].filter(Boolean).join("/") || (job.summary || ""),
+      job.company,
+    ];
+    const line = parts.filter(Boolean).join(" · ");
+    return line || (job.summary || "");
+  }
+
   function fileStem(job) {
     const base = job.title || job.jobId || "boss-job";
     return base.replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40) || "boss-job";
@@ -349,5 +370,10 @@
     fileStem,
     detailSections,
     appendDetails,
+    summaryLine,
+    clean,
+    textOf,
+    looksEncrypted,
+    classifyMeta,
   };
 })(globalThis);

@@ -190,6 +190,10 @@ function isJobPage(url) {
   return /^https:\/\/www\.zhipin\.com\/job_detail\//.test(url || "");
 }
 
+function isListPage(url) {
+  return /^https:\/\/www\.zhipin\.com\/web\/geek\/jobs/.test(url || "");
+}
+
 function renderTools() {
   const card = el("section", "card");
   const row = el("div", "row");
@@ -263,13 +267,100 @@ async function readJob(tab) {
   }
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    files: ["extract.js", "resume-text.js", "fill.js", "content.js"],
+    files: ["extract.js", "resume-text.js", "fill.js", "list-extract.js", "content.js"],
   });
   const [injected] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => globalThis.BossJdExtract.extractJob(),
   });
   return injected?.result;
+}
+
+async function readList(tab) {
+  const collect = () => globalThis.BossJdList?.extractList?.() || { ok: false, message: "列表提取功能还没准备好。" };
+  try {
+    const [existing] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: collect,
+    });
+    if (existing?.result) return existing.result;
+  } catch {
+    /* 页面在安装插件前就打开了，继续注入。 */
+  }
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["extract.js", "resume-text.js", "fill.js", "list-extract.js", "content.js"],
+  });
+  const [injected] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: collect,
+  });
+  return injected?.result || { ok: false, message: "读取列表失败，请刷新页面后再试。" };
+}
+
+function renderListJobs(jobs) {
+  const card = el("section", "card");
+  card.append(el("h2", "title", `本页 ${jobs.length} 条岗位`));
+  const actions = el("div", "actions");
+  const saveAll = el("button", "primary", "全部收藏");
+  saveAll.type = "button";
+  const status = el("p", "toast", "");
+  saveAll.addEventListener("click", () => {
+    saveAll.disabled = true;
+    chrome.runtime.sendMessage({ type: "BJD_LIST", op: "saveAll", jobs }, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error || !response?.ok) {
+        status.textContent = (error?.message || response?.error || "收藏失败");
+        saveAll.disabled = false;
+        return;
+      }
+      status.textContent = `已收藏 ${response.result.length} 条（含更新）。`;
+      saveAll.textContent = "已收藏";
+    });
+  });
+  actions.append(saveAll);
+  card.append(actions);
+  const list = el("ul", "meta list-jobs");
+  jobs.forEach((job) => {
+    const li = document.createElement("li");
+    li.className = "list-job";
+    const head = el("div", "list-job-head");
+    head.append(el("strong", "", job.title || "未命名岗位"));
+    head.append(el("b", "job-salary", job.salary || "薪资面议"));
+    li.append(head);
+    const req = [job.location, job.experience, job.education].filter(Boolean).join(" · ");
+    if (req) li.append(el("p", "sub", req));
+    if ((job.tags || []).length) li.append(el("p", "sub tags", `标签：${job.tags.join("、")}`));
+    const row = el("div", "row");
+    if (job.url) {
+      const link = document.createElement("a");
+      link.className = "open-job";
+      link.href = job.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "打开";
+      row.append(link);
+    }
+    const saveOne = el("button", "", "收藏");
+    saveOne.type = "button";
+    saveOne.addEventListener("click", () => {
+      saveOne.disabled = true;
+      chrome.runtime.sendMessage({ type: "BJD_LIST", op: "saveOne", job }, (response) => {
+        const error = chrome.runtime.lastError;
+        if (error || !response?.ok) {
+          status.textContent = error?.message || response?.error || "收藏失败";
+          saveOne.disabled = false;
+          return;
+        }
+        saveOne.textContent = "已收藏";
+      });
+    });
+    row.append(saveOne);
+    li.append(row);
+    list.append(li);
+  });
+  card.append(list, status);
+  return card;
 }
 
 async function boot() {
@@ -283,13 +374,33 @@ async function boot() {
     tab = null;
   }
 
-  if (!tab || !isJobPage(tab.url)) {
+  if (!tab || (!isJobPage(tab.url) && !isListPage(tab.url))) {
     const card = el("section", "card");
     card.append(
-      el("p", "status", "当前标签不是 BOSS直聘的岗位详情页。"),
-      el("p", "hint", "收藏和提取需要打开 zhipin.com/job_detail/ 开头的职位页。其他招聘网站可以用上面的「填写当前页面」。若页面停在安全验证，先手动完成验证。")
+      el("p", "status", "当前标签不是 BOSS直聘的岗位详情页或推荐列表页。"),
+      el("p", "hint", "收藏和提取需要打开 zhipin.com/job_detail/ 开头的职位页，或 zhipin.com/web/geek/jobs 开头的推荐列表页。其他招聘网站可以用上面的「填写当前页面」。若页面停在安全验证，先手动完成验证。")
     );
     app.append(card, renderSaved(jobs));
+    return;
+  }
+
+  if (isListPage(tab.url)) {
+    let list;
+    try {
+      list = await readList(tab);
+    } catch {
+      const card = el("section", "card");
+      card.append(el("p", "warn", "读取失败。请刷新列表页后再打开插件。"));
+      app.append(card, renderSaved(jobs));
+      return;
+    }
+    if (!list || !list.ok) {
+      const card = el("section", "card");
+      card.append(el("p", "warn", list?.message || "没有读到列表岗位。"));
+      app.append(card, renderSaved(jobs));
+      return;
+    }
+    app.append(renderListJobs(list.jobs), renderSaved(jobs));
     return;
   }
 

@@ -6,6 +6,8 @@
 
 Chrome MV3 扩展「BOSS岗位提取」：提取 zhipin.com 岗位详情、本地收藏管理、简历管理与表单自动填写、以及基于用户自配 LLM 的求职建议。纯原生 JavaScript，无构建、无打包、无 npm 依赖、无 lint 工具。所有界面文案、注释、错误信息使用中文（zh-CN），新代码应保持一致。
 
+改用户能看见的文案、入口或流程前，先读 `USER.md`（使用者、要办的事、界面用词）。产品红线的代码落点仍以下面「必须遵守的产品约束」为准。
+
 ## 常用命令
 
 ```bash
@@ -23,7 +25,8 @@ python tests/make_icons.py     # 重新生成 icons/ 下的 PNG 图标
 每个 `.js` 是一个 IIFE，挂到 `globalThis` 的命名空间上，靠 `<script src>` 加载顺序协作（见各 HTML 底部）和 `background.js` 的 `importScripts`。没有模块打包：
 
 - `db.js` → `BossJdDB`：IndexedDB（库名 `boss-jd`，v4；stores：favorites / resumes / advice / interviews）+ `chrome.storage.local` 迁移。
-- `extract.js` → `BossJdExtract`：从 BOSS 岗位页 DOM 提取职位字段；检测自定义字体加密的薪资（PUA 字符区）。
+- `extract.js` → `BossJdExtract`：从 BOSS 岗位页 DOM 提取职位字段；检测自定义字体加密的薪资（PUA 字符区）；导出 `summaryLine`/`classifyMeta` 等供列表与收藏复用。
+- `list-extract.js` → `BossJdList`：从推荐/搜索列表页（`/web/geek/jobs`）的岗位卡片提取批量岗位（选择器优先、卡片文本行兜底），记录带 `source: "list"`。
 - `resume-text.js` → `BossJdResumeText`：从 txt/md/pdf/docx 提取纯文本，含手写 zip inflate（PDF/DOCX 解析无第三方库）。
 - `fill.js` → `BossJdFill`：收集页面空表单字段 / 应用填写计划（注入到任意招聘网站执行）。
 - `llm.js` → `BossJdLlm`：OpenAI 兼容 `/chat/completions` 调用；配置存 `chrome.storage.local` 的 `bjd_llm`。
@@ -34,17 +37,17 @@ python tests/make_icons.py     # 重新生成 icons/ 下的 PNG 图标
 
 `background.js` 是唯一 service worker，也是 IndexedDB 的唯一访问点。所有上下文（popup、options、favorites、coach、content script）通过 `chrome.runtime.sendMessage` 带 `type` 字段调用：
 
-`BJD_DB` / `BJD_RESUME` / `BJD_AGENT` / `BJD_INTERVIEW` / `BJD_COACH` / `BJD_OPEN_PAGE`
+`BJD_DB` / `BJD_RESUME` / `BJD_AGENT` / `BJD_LIST` / `BJD_INTERVIEW` / `BJD_COACH` / `BJD_OPEN_PAGE`
 
 新增后台能力时：在 `background.js` 加 type 分支 + handler，返回 `{ ok, result }` 或 throw（自动转 `{ ok: false, error }`）。UI 侧已有 promise 封装的 `extensionRequest`/`request` 模式可参考。
 
 ### 内容脚本注入链
 
-manifest 的 content_scripts 顺序是 `extract.js, resume-text.js, fill.js, content.js`（`run_at: document_idle`）。`content.js` 在 `/job_detail/` 页面注入 Shadow DOM 侧边栏（宿主 `#bjd-root`，`all:initial` 隔离样式）。注意 `popup.js:266` 的兜底注入文件列表必须与 manifest 保持同步——新增内容脚本文件时两处都要改。
+manifest 有两条 content_scripts：岗位详情页（`/job_detail/*`）注入 `extract.js, resume-text.js, fill.js, content.js`；推荐列表页（`/web/geek/jobs*`）注入 `extract.js, resume-text.js, fill.js, list-extract.js, content.js`（均 `run_at: document_idle`）。`content.js` 在两类页面注入 Shadow DOM 侧边栏（宿主 `#bjd-root`，`all:initial` 隔离样式），在列表页用 `BossJdList` 提供的卡片数据渲染「本页岗位」视图。注意 `popup.js` 的兜底注入文件列表必须与 manifest 保持同步——新增内容脚本文件时两处都要改。
 
 ### 权限模型
 
-manifest 只声明 `zhipin.com/job_detail/*` 的 host 权限；其余网站走 `optional_host_permissions`。模型接口地址由用户在 options 页填写，保存时 `chrome.permissions.request` 按域名授权（`llm.js` 调用前会校验已授权）。仓库中没有也不应有默认密钥。
+manifest 只声明 `zhipin.com/job_detail/*` 的 host 权限；列表页 `/web/geek/jobs*` 由 content_scripts matches 覆盖注入，不额外申请 host 权限；其余网站走 `optional_host_permissions`。模型接口地址由用户在 options 页填写，保存时 `chrome.permissions.request` 按域名授权（`llm.js` 调用前会校验已授权）。仓库中没有也不应有默认密钥。
 
 ## 必须遵守的产品约束（README 已向用户承诺）
 

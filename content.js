@@ -26,6 +26,14 @@
     return location.pathname.includes("/job_detail/");
   }
 
+  function isListPage() {
+    return /\/web\/geek\/jobs/.test(location.pathname + location.search);
+  }
+
+  function extractLabel() {
+    return isListPage() ? "本页岗位" : "提取当前岗位";
+  }
+
   function liveHost() {
     const host = document.getElementById(HOST_ID);
     if (host?.shadowRoot?.getElementById("shell")) return host;
@@ -33,7 +41,7 @@
   }
 
   function ensureHost() {
-    if (!isJobPage()) {
+    if (!isJobPage() && !isListPage()) {
       shiftPage(false);
       return null;
     }
@@ -207,6 +215,36 @@
         .fav-main strong { display: block; font-size: 14px; line-height: 1.35; }
         .fav-main span { display: block; margin-top: 2px; color: #78716c; font-size: 12px; }
         .fav-main[aria-expanded="true"] strong { color: #0f766e; }
+        .fav-meta { display: block; margin-top: 2px; color: #78716c; font-size: 12px; }
+        .fav-meta b { color: #0f766e; font-weight: 650; font-variant-numeric: tabular-nums; }
+        .fav-req { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .fav-req span {
+          background: #f5f5f4;
+          border-radius: 4px;
+          color: #57534e;
+          font-size: 11px;
+          padding: 1px 6px;
+        }
+        .list-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+          margin: 0 0 10px;
+        }
+        .list-actions .chip { cursor: pointer; }
+        .list-actions .chip[aria-pressed="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
+        .list-actions > button {
+          border: 1px solid #d6d3d1;
+          background: #fff;
+          border-radius: 8px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .list-actions > button.primary { background: #0f766e; color: #fff; border-color: #0f766e; }
+        .list-tools .chip { cursor: pointer; }
+        .list-tools .chip[aria-pressed="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
         .open-job {
           flex-shrink: 0;
           border: 1px solid #0f766e;
@@ -222,6 +260,7 @@
         .fav-detail .desc { margin-top: 8px; }
         .resume { padding: 10px 0; border-bottom: 1px solid #e7e5e4; }
         .list-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .list-tools .chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .list-tools .chip { cursor: pointer; }
         .list-tools .chip[aria-pressed="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
         .list-tools > button {
@@ -385,7 +424,8 @@
       else closePanel(shadow);
     });
     shadow.getElementById("refresh")?.addEventListener("click", () => {
-      showJob(shadow);
+      if (isListPage()) showPageJobs(shadow);
+      else showJob(shadow);
     });
     shadow.getElementById("resumes")?.addEventListener("click", () => {
       showResumes(shadow);
@@ -411,6 +451,13 @@
       if (refresh) refresh.textContent = "重新提取";
       return;
     }
+    if (mode === "pagejobs") {
+      if (title) title.textContent = "本页岗位";
+      if (sub) sub.textContent = "列表页上的岗位，点开看要求与地点";
+      if (close) close.textContent = "返回列表";
+      if (refresh) refresh.textContent = "重新扫描";
+      return;
+    }
     if (mode === "resumes") {
       if (title) title.textContent = "我的简历";
       if (sub) sub.textContent = "默认简历用于填写当前页";
@@ -430,7 +477,7 @@
     if (title) title.textContent = "收藏列表";
     if (sub) sub.textContent = "点职位查看详情";
     if (close) close.textContent = "收起";
-    if (refresh) refresh.textContent = "提取当前岗位";
+    if (refresh) refresh.textContent = extractLabel();
   }
 
   function shiftPage(open, shell) {
@@ -544,6 +591,163 @@
     }
   }
 
+  async function showPageJobs(shadow) {
+    if (openDepth > 1) return;
+    openDepth += 1;
+    try {
+      let root = shadow?.getElementById?.("shell") ? shadow : null;
+      if (!root) root = ensureHost()?.shadowRoot || null;
+      if (!setOpen(root, true)) return;
+      setMode(root, "pagejobs");
+      const body = root.getElementById("body");
+      const foot = root.getElementById("foot");
+      if (body) {
+        body.replaceChildren();
+        const status = document.createElement("p");
+        status.className = "status";
+        status.textContent = "正在扫描列表…";
+        body.append(status);
+      }
+      if (foot) {
+        foot.hidden = true;
+        foot.replaceChildren();
+      }
+      const collect = globalThis.BossJdList?.extractList;
+      const result = collect ? collect() : { ok: false, message: "列表提取功能还没准备好，请刷新页面。" };
+      if (root.__bjdMode !== "pagejobs") return;
+      if (!result.ok) {
+        renderListMessage(root, result.message || "没有扫到岗位。");
+        return;
+      }
+      renderPageJobs(root, result.jobs);
+    } finally {
+      openDepth -= 1;
+    }
+  }
+
+  function renderPageJobs(shadow, jobs) {
+    const body = shadow.getElementById("body");
+    const foot = shadow.getElementById("foot");
+    if (!body) return;
+    if (foot) {
+      foot.hidden = true;
+      foot.replaceChildren();
+    }
+    body.replaceChildren();
+    const actions = document.createElement("div");
+    actions.className = "list-actions";
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = `本页 ${jobs.length} 条`;
+    const saveAll = document.createElement("button");
+    saveAll.type = "button";
+    saveAll.className = "primary";
+    saveAll.textContent = "全部收藏";
+    const toast = document.createElement("p");
+    toast.className = "toast";
+    toast.style.flexBasis = "100%";
+    toast.style.margin = "0";
+    saveAll.addEventListener("click", async () => {
+      saveAll.disabled = true;
+      toast.textContent = "正在写入收藏…";
+      try {
+        const savedList = await extensionRequest("BJD_LIST", "saveAll", { jobs });
+        toast.textContent = `已收藏 ${savedList.length} 条（含更新）。`;
+        saveAll.textContent = "已收藏";
+      } catch (error) {
+        toast.textContent = error.message || "收藏失败";
+        saveAll.disabled = false;
+      }
+    });
+    actions.append(count, saveAll);
+    body.append(actions, toast);
+    jobs.forEach((job) => body.append(renderPageJobItem(job)));
+  }
+
+  function renderPageJobItem(job) {
+    const item = document.createElement("article");
+    item.className = "fav";
+    const top = document.createElement("div");
+    top.className = "fav-top";
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "fav-main";
+    main.setAttribute("aria-expanded", "false");
+    const title = document.createElement("strong");
+    title.textContent = job.title || "未命名岗位";
+    const meta = document.createElement("span");
+    meta.className = "fav-meta";
+    const salaryNode = document.createElement("b");
+    salaryNode.textContent = job.salary || "薪资面议";
+    meta.append(salaryNode);
+    const rest = [job.location, job.experience, job.education].filter(Boolean).join(" · ");
+    if (rest) meta.append(document.createTextNode(` ${rest}`));
+    const req = document.createElement("span");
+    req.className = "fav-req";
+    (job.tags || []).slice(0, 6).forEach((tag) => {
+      const chip = document.createElement("span");
+      chip.textContent = tag;
+      req.append(chip);
+    });
+    main.append(title, meta);
+    if ((job.tags || []).length) main.append(req);
+    const detail = document.createElement("div");
+    detail.className = "fav-detail";
+    detail.hidden = true;
+    const extractApi = globalThis.BossJdExtract;
+    if (extractApi?.appendDetails) extractApi.appendDetails(detail, job);
+    else if (job.summary) {
+      const desc = document.createElement("div");
+      desc.className = "desc";
+      desc.textContent = job.summary;
+      detail.append(desc);
+    }
+    detail.append(buildListSaveRow(job));
+    main.addEventListener("click", () => {
+      const willOpen = detail.hidden;
+      item.parentElement?.querySelectorAll(".fav-detail").forEach((node) => {
+        if (node !== detail) node.hidden = true;
+      });
+      item.parentElement?.querySelectorAll(".fav-main").forEach((node) => {
+        if (node !== main) node.setAttribute("aria-expanded", "false");
+      });
+      detail.hidden = !willOpen;
+      main.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+    top.append(main);
+    if (job.url) {
+      const link = document.createElement("a");
+      link.className = "open-job";
+      link.href = job.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "打开";
+      top.append(link);
+    }
+    item.append(top, detail);
+    return item;
+  }
+
+  function buildListSaveRow(job) {
+    const wrap = document.createElement("div");
+    wrap.className = "track";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.textContent = "收藏这条";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await extensionRequest("BJD_LIST", "saveOne", { job });
+        save.textContent = "已收藏";
+      } catch (error) {
+        save.textContent = (error.message || "失败").slice(0, 12);
+        save.disabled = false;
+      }
+    });
+    wrap.append(save);
+    return wrap;
+  }
+
   async function showResumes(shadow) {
     let root = shadow?.getElementById?.("shell") ? shadow : null;
     if (!root) root = ensureHost()?.shadowRoot || null;
@@ -629,7 +833,7 @@
     if (!jobs.length) {
       const empty = document.createElement("p");
       empty.className = "status";
-      empty.textContent = "还没有收藏。点右上角「提取当前岗位」，或点「导入岗位」手动添加。";
+      empty.textContent = "还没有收藏。在岗位详情页点「提取当前岗位」，在推荐列表页点「本页岗位」，或点「导入岗位」手动添加。";
       body.append(empty);
       return;
     }
@@ -714,8 +918,20 @@
     const title = document.createElement("strong");
     title.textContent = job.title || "未命名岗位";
     const meta = document.createElement("span");
-    meta.textContent = [job.company, job.salary, job.distance].filter(Boolean).join(" · ") || "查看详情";
+    meta.className = "fav-meta";
+    const summary = globalThis.BossJdExtract?.summaryLine
+      ? globalThis.BossJdExtract.summaryLine(job)
+      : [job.company, job.salary, job.distance].filter(Boolean).join(" · ");
+    meta.textContent = summary || "查看详情";
+    const req = document.createElement("span");
+    req.className = "fav-req";
+    (job.tags || []).slice(0, 4).forEach((tag) => {
+      const chip = document.createElement("span");
+      chip.textContent = tag;
+      req.append(chip);
+    });
     main.append(title, meta);
+    if ((job.tags || []).length) main.append(req);
     const detail = document.createElement("div");
     detail.className = "fav-detail";
     detail.hidden = true;

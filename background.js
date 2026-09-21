@@ -18,11 +18,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       ? handleResume(message)
         : message.type === "BJD_AGENT"
           ? handleAgent(message)
-          : message.type === "BJD_INTERVIEW"
-            ? handleInterview(message)
-            : message.type === "BJD_COACH"
-              ? globalThis.BossJdCoach.handle(message)
-              : null;
+          : message.type === "BJD_LIST"
+            ? handleList(message)
+            : message.type === "BJD_INTERVIEW"
+              ? handleInterview(message)
+              : message.type === "BJD_COACH"
+                ? globalThis.BossJdCoach.handle(message)
+                : null;
   if (!task) return;
   task
     .then((result) => sendResponse({ ok: true, result }))
@@ -95,6 +97,28 @@ async function handleAgent(message) {
   const plan = await globalThis.BossJdAgent.plan(full.text, fields);
   const file = message.hasFile ? await resumeFile(chosen.id) : null;
   return { ...plan, file, resumeName: chosen.name };
+}
+
+async function handleList(message) {
+  const db = globalThis.BossJdDB;
+  if (message.op === "saveAll") {
+    const jobs = Array.isArray(message.jobs) ? message.jobs : [];
+    const saved = [];
+    for (const job of jobs) {
+      try {
+        saved.push(await db.saveFavorite(job));
+      } catch {
+        /* 单条失败不阻塞其余卡片。 */
+      }
+    }
+    if (!saved.length) throw new Error("没有可收藏的岗位");
+    return saved;
+  }
+  if (message.op === "saveOne") {
+    if (!message.job) throw new Error("缺少岗位数据");
+    return db.saveFavorite(message.job);
+  }
+  throw new Error("未知的列表操作");
 }
 
 async function handleInterview(message) {
