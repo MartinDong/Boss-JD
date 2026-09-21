@@ -111,7 +111,7 @@
         }
         .head {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           gap: 8px;
           padding: 14px 16px;
@@ -120,7 +120,7 @@
         }
         .head h2 { margin: 0; font-size: 15px; font-weight: 650; }
         .head p { margin: 2px 0 0; color: #78716c; font-size: 12px; }
-        .head-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .head-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
         .icon-btn {
           border: 1px solid #e7e5e4;
           background: #fff;
@@ -220,6 +220,20 @@
         }
         .fav-detail { margin-top: 8px; }
         .fav-detail .desc { margin-top: 8px; }
+        .resume { padding: 10px 0; border-bottom: 1px solid #e7e5e4; }
+        .resume strong { display: block; font-size: 14px; }
+        .resume .meta { margin: 4px 0 0; color: #78716c; font-size: 12px; line-height: 1.45; }
+        .resume .row, .upload-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .resume button, .upload-row button {
+          border: 1px solid #d6d3d1;
+          background: #fff;
+          border-radius: 8px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 12px;
+          color: #1c1917;
+        }
+        .badge { color: #0f766e; font-weight: 650; }
       </style>
       <div class="shell" id="shell">
         <button class="tab" id="toggle" type="button" aria-expanded="false" aria-controls="panel">岗位</button>
@@ -231,6 +245,8 @@
               <p>点职位查看详情</p>
             </div>
             <div class="head-actions">
+              <button class="icon-btn" id="resumes" type="button">简历</button>
+              <button class="icon-btn" id="coach" type="button">建议</button>
               <button class="icon-btn" id="refresh" type="button">提取当前岗位</button>
               <button class="icon-btn" id="close" type="button">收起</button>
             </div>
@@ -323,11 +339,17 @@
       else openPanel(shadow);
     });
     shadow.getElementById("close")?.addEventListener("click", () => {
-      if (shadow.__bjdMode === "job") showList(shadow);
+      if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes") showList(shadow);
       else closePanel(shadow);
     });
     shadow.getElementById("refresh")?.addEventListener("click", () => {
       showJob(shadow);
+    });
+    shadow.getElementById("resumes")?.addEventListener("click", () => {
+      showResumes(shadow);
+    });
+    shadow.getElementById("coach")?.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "BJD_OPEN_PAGE", page: "coach.html" });
     });
   }
 
@@ -337,11 +359,22 @@
     const sub = shadow.querySelector(".head p");
     const close = shadow.getElementById("close");
     const refresh = shadow.getElementById("refresh");
+    const resumes = shadow.getElementById("resumes");
+    if (refresh) refresh.hidden = false;
+    if (resumes) resumes.hidden = false;
     if (mode === "job") {
       if (title) title.textContent = "当前岗位";
       if (sub) sub.textContent = "关闭后回到收藏列表";
       if (close) close.textContent = "返回列表";
       if (refresh) refresh.textContent = "重新提取";
+      return;
+    }
+    if (mode === "resumes") {
+      if (title) title.textContent = "我的简历";
+      if (sub) sub.textContent = "默认简历用于填写当前页";
+      if (close) close.textContent = "返回列表";
+      if (refresh) refresh.hidden = true;
+      if (resumes) resumes.hidden = true;
       return;
     }
     if (title) title.textContent = "收藏列表";
@@ -458,6 +491,31 @@
       );
     } finally {
       openDepth -= 1;
+    }
+  }
+
+  async function showResumes(shadow) {
+    let root = shadow?.getElementById?.("shell") ? shadow : null;
+    if (!root) root = ensureHost()?.shadowRoot || null;
+    if (!setOpen(root, true)) return;
+    setMode(root, "resumes");
+    const body = root.getElementById("body");
+    const foot = root.getElementById("foot");
+    if (body) {
+      body.replaceChildren();
+      const status = document.createElement("p");
+      status.className = "status";
+      status.textContent = "正在读取简历…";
+      body.append(status);
+    }
+    if (foot) {
+      foot.hidden = true;
+      foot.replaceChildren();
+    }
+    try {
+      renderResumeList(root, await extensionRequest("BJD_RESUME", "list"));
+    } catch (error) {
+      renderListMessage(root, error.message || "暂时读不到简历。");
     }
   }
 
@@ -594,23 +652,179 @@
   }
 
   function dbRequest(op, extra) {
+    return extensionRequest("BJD_DB", op, extra);
+  }
+
+  function extensionRequest(type, op, extra) {
     if (!globalThis.chrome?.runtime?.sendMessage) {
       return Promise.reject(new Error("当前页面无法访问插件数据库"));
     }
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type: "BJD_DB", op, ...extra }, (response) => {
+      chrome.runtime.sendMessage({ type, op, ...extra }, (response) => {
         const runtimeError = chrome.runtime.lastError;
         if (runtimeError) {
           reject(new Error(runtimeError.message));
           return;
         }
         if (!response || response.ok === false) {
-          reject(new Error(response?.error || "本地数据库操作失败"));
+          reject(new Error(response?.error || "操作失败"));
           return;
         }
         resolve(response.result);
       });
     });
+  }
+
+  function renderResumeList(shadow, resumes) {
+    const body = shadow.getElementById("body");
+    const foot = shadow.getElementById("foot");
+    if (!body) return;
+    body.replaceChildren();
+    const hint = document.createElement("p");
+    hint.className = "status";
+    hint.textContent = "可上传多份。填写只会写入这一页的空表单，不会点提交。";
+    const uploadRow = document.createElement("div");
+    uploadRow.className = "upload-row";
+    const upload = document.createElement("button");
+    upload.type = "button";
+    upload.textContent = "上传简历";
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.hidden = true;
+    input.accept = ".txt,.md,.pdf,.docx,text/plain,application/pdf";
+    upload.addEventListener("click", () => input.click());
+    input.addEventListener("change", () => {
+      uploadPickedResumes(shadow, input.files).catch((error) => {
+        hint.textContent = error.message || "上传失败";
+      });
+    });
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.textContent = "模型配置";
+    settings.addEventListener("click", () => chrome.runtime.openOptionsPage());
+    uploadRow.append(upload, settings, input);
+    body.append(hint, uploadRow);
+    if (!resumes.length) {
+      const empty = document.createElement("p");
+      empty.className = "status";
+      empty.textContent = "还没有简历。上传后，PDF 如果没有抽出文字，请到模型配置页把正文补上。";
+      body.append(empty);
+    } else {
+      resumes.forEach((resume) => body.append(renderResumeItem(shadow, resume)));
+    }
+    if (!foot) return;
+    foot.hidden = false;
+    foot.replaceChildren();
+    const fill = document.createElement("button");
+    fill.type = "button";
+    fill.className = "primary wide";
+    fill.textContent = "用默认简历填写当前页";
+    const toast = document.createElement("p");
+    toast.className = "toast";
+    fill.addEventListener("click", () => fillThisPage(shadow, toast, shadow.querySelector("input[name='bjd-resume']:checked")?.value));
+    foot.append(fill, toast);
+  }
+
+  function renderResumeItem(shadow, resume) {
+    const item = document.createElement("article");
+    item.className = "resume";
+    const title = document.createElement("strong");
+    title.textContent = resume.name || "未命名简历";
+    if (resume.isDefault) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = " · 默认";
+      title.append(badge);
+    }
+    const meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = String(resume.text || "").replace(/\s+/g, " ").slice(0, 72) || "没有正文，填写前请先补上文字。";
+    const row = document.createElement("div");
+    row.className = "row";
+    const pick = document.createElement("input");
+    pick.type = "radio";
+    pick.name = "bjd-resume";
+    pick.value = resume.id;
+    pick.checked = Boolean(resume.isDefault);
+    const use = document.createElement("button");
+    use.type = "button";
+    use.textContent = resume.isDefault ? "已是默认" : "设为默认";
+    use.disabled = Boolean(resume.isDefault);
+    use.addEventListener("click", () => {
+      extensionRequest("BJD_RESUME", "default", { id: resume.id })
+        .then(() => showResumes(shadow))
+        .catch((error) => {
+          meta.textContent = error.message || "设置失败";
+        });
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "删除";
+    remove.addEventListener("click", () => {
+      if (!confirm(`删除「${resume.name || "未命名简历"}」？`)) return;
+      extensionRequest("BJD_RESUME", "remove", { id: resume.id })
+        .then(() => showResumes(shadow))
+        .catch((error) => {
+          meta.textContent = error.message || "删除失败";
+        });
+    });
+    const pickLabel = document.createElement("span");
+    pickLabel.textContent = "用这份";
+    row.append(pick, pickLabel, use, remove);
+    item.append(title, meta, row);
+    return item;
+  }
+
+  async function uploadPickedResumes(shadow, fileList) {
+    const files = [...(fileList || [])];
+    for (const file of files) {
+      if (file.size > 8 * 1024 * 1024) throw new Error("单个文件请小于 8MB");
+      const buffer = await file.arrayBuffer();
+      const text = globalThis.BossJdResumeText
+        ? await globalThis.BossJdResumeText.extract(buffer, file.name)
+        : "";
+      await extensionRequest("BJD_RESUME", "save", {
+        name: file.name.replace(/\.[^.]+$/, ""),
+        filename: file.name,
+        mime: file.type || "application/octet-stream",
+        text,
+        buffer,
+      });
+    }
+    await showResumes(shadow);
+  }
+
+  async function fillThisPage(shadow, toast, resumeId) {
+    const collect = globalThis.BossJdFill?.collectFields;
+    const apply = globalThis.BossJdFill?.applyPlan;
+    if (!collect || !apply) {
+      toast.textContent = "填写功能还没准备好，请刷新页面。";
+      return;
+    }
+    const collected = collect();
+    if (collected.blocked) {
+      toast.textContent = "页面还在安全验证，请先手动完成。";
+      return;
+    }
+    if (!collected.fields.length && !collected.hasFile) {
+      toast.textContent = "这一页没有可填写的空表单。";
+      return;
+    }
+    toast.textContent = "正在根据简历填写…";
+    try {
+      const plan = await extensionRequest("BJD_AGENT", "plan", {
+        resumeId: resumeId || "",
+        fields: collected.fields,
+        hasFile: collected.hasFile,
+      });
+      const result = apply(plan);
+      const note = plan.note ? ` ${plan.note}` : "";
+      const upload = result.uploaded ? "简历文件已放进上传框。" : "";
+      toast.textContent = `已填写 ${result.filled} 项。${upload}${note}请自己检查后再提交。`;
+    } catch (error) {
+      toast.textContent = error.message || "填写失败";
+    }
   }
 
   async function refreshFavoriteState(shadow, job) {
@@ -707,7 +921,7 @@
     if (event.key !== "Escape" || !panelOpen) return;
     const shadow = liveHost()?.shadowRoot;
     if (!shadow) return;
-    if (shadow.__bjdMode === "job") showList(shadow);
+    if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes") showList(shadow);
     else closePanel(shadow);
   });
 

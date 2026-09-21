@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
   "name": "BOSS岗位提取",
-  "version": "1.2.0",
-  "description": "在 BOSS直聘岗位详情页提取当前职位内容，并收藏到本地数据库。适用于 Chrome、Edge、夸克。",
+  "version": "1.4.0",
+  "description": "提取 BOSS直聘岗位，管理简历，并按你的求职目标对收藏岗位给出建议。",
   "permissions": ["storage", "scripting", "activeTab"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": {
     "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "host_permissions": ["https://www.zhipin.com/job_detail/*"],
   "action": {
@@ -27,7 +32,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.zhipin.com/job_detail/*"],
-      "js": ["extract.js", "content.js"],
+      "js": ["extract.js", "resume-text.js", "fill.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

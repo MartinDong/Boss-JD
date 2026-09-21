@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>求职建议</title>
+    <link rel="stylesheet" href="coach.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>求职建议</h1>
+          <p>先写下你想找的岗位，再从收藏里挑选要比较的职位。建议只依据这些材料和默认简历，不会自动投递。</p>
+        </div>
+        <button id="open-settings" type="button">模型配置</button>
+      </header>
+      <div class="layout">
+        <section class="card">
+          <h2>期望条件</h2>
+          <label>目标职位 <input id="role" type="text" maxlength="120" placeholder="例如：前端开发" /></label>
+          <label>城市 <input id="cities" type="text" maxlength="120" placeholder="北京、上海，多个用顿号分开" /></label>
+          <div class="split">
+            <label>薪资 <input id="salary" type="text" maxlength="120" placeholder="例如：25-40K" /></label>
+            <label>行业 <input id="industry" type="text" maxlength="120" placeholder="例如：企业软件" /></label>
+          </div>
+          <div class="split">
+            <label>到岗方式
+              <select id="workMode">
+                <option value="">不限</option>
+                <option>现场</option>
+                <option>混合</option>
+                <option>远程</option>
+              </select>
+            </label>
+            <label>经验阶段 <input id="experience" type="text" maxlength="120" placeholder="例如：3-5年" /></label>
+          </div>
+          <label>必须满足 <textarea id="mustHave" rows="3" placeholder="技能、业务或别的硬条件"></textarea></label>
+          <label>不想去 <textarea id="avoid" rows="2" placeholder="外包、某类行业、过长通勤等"></textarea></label>
+          <label>补充 <textarea id="notes" rows="3" placeholder="求职节奏、能不能接受出差、在意的团队情况"></textarea></label>
+          <button id="save-target" type="button">保存条件</button>
+          <p class="status" id="target-status"></p>
+        </section>
+        <section class="card">
+          <h2>收藏岗位</h2>
+          <p class="hint">不勾选时，会优先拿和目标更接近的 6 条。勾选后只分析勾选的岗位，仍最多 6 条。</p>
+          <div id="job-picks"></div>
+          <div class="row" id="tasks"></div>
+          <div class="row" id="history"></div>
+          <p class="status" id="status"></p>
+          <div id="result"></div>
+        </section>
+      </div>
+    </main>
+    <script src="coach.js"></script>
+  </body>
+</html>

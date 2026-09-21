@@ -1,7 +1,9 @@
 (function (root) {
   const DB_NAME = "boss-jd";
-  const DB_VERSION = 1;
+  const DB_VERSION = 3;
   const STORE = "favorites";
+  const RESUMES = "resumes";
+  const ADVICE = "advice";
   const FIELDS = [
     "title",
     "salary",
@@ -40,6 +42,13 @@
           const store = db.createObjectStore(STORE, { keyPath: "id" });
           store.createIndex("jobId", "jobId", { unique: false });
           store.createIndex("savedAt", "savedAt", { unique: false });
+        }
+        if (!db.objectStoreNames.contains(RESUMES)) {
+          const resumes = db.createObjectStore(RESUMES, { keyPath: "id" });
+          resumes.createIndex("updatedAt", "updatedAt", { unique: false });
+        }
+        if (!db.objectStoreNames.contains(ADVICE)) {
+          db.createObjectStore(ADVICE, { keyPath: "id" });
         }
       };
       request.onsuccess = () => resolve(request.result);
@@ -167,6 +176,136 @@
     db.close();
   }
 
+  function publicResume(record) {
+    if (!record) return null;
+    return {
+      id: record.id,
+      name: record.name || "未命名简历",
+      filename: record.filename || "",
+      mime: record.mime || "",
+      text: record.text || "",
+      updatedAt: record.updatedAt || "",
+      isDefault: Boolean(record.isDefault),
+      hasFile: Boolean(record.file),
+    };
+  }
+
+  async function readResumes() {
+    const db = await openDb();
+    const tx = db.transaction(RESUMES, "readonly");
+    const rows = await requestToPromise(tx.objectStore(RESUMES).getAll());
+    await transactionDone(tx);
+    db.close();
+    return rows.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  }
+
+  async function readResume(id) {
+    const db = await openDb();
+    const tx = db.transaction(RESUMES, "readonly");
+    const row = await requestToPromise(tx.objectStore(RESUMES).get(id));
+    await transactionDone(tx);
+    db.close();
+    return row || null;
+  }
+
+  async function writeResume(record) {
+    const db = await openDb();
+    const tx = db.transaction(RESUMES, "readwrite");
+    tx.objectStore(RESUMES).put(record);
+    await transactionDone(tx);
+    db.close();
+  }
+
+  async function saveResume(input) {
+    await ensureReady();
+    const existing = input?.id ? await readResume(input.id) : null;
+    const rows = existing ? [] : await readResumes();
+    const now = new Date().toISOString();
+    const record = {
+      id: existing?.id || input.id || crypto.randomUUID(),
+      name: String(input.name || input.filename || existing?.name || "未命名简历").slice(0, 80),
+      filename: input.filename || existing?.filename || "",
+      mime: input.mime || existing?.mime || "text/plain",
+      text: String(input.text ?? existing?.text ?? "").slice(0, 200000),
+      updatedAt: now,
+      isDefault: input.isDefault != null ? Boolean(input.isDefault) : Boolean(existing?.isDefault),
+      file: input.file === undefined ? existing?.file || null : input.file,
+    };
+    if (!existing && !rows.length) record.isDefault = true;
+    if (record.isDefault) {
+      const all = await readResumes();
+      for (const row of all) {
+        if (row.id !== record.id && row.isDefault) {
+          row.isDefault = false;
+          await writeResume(row);
+        }
+      }
+    }
+    await writeResume(record);
+    return publicResume(record);
+  }
+
+  async function listResumes() {
+    await ensureReady();
+    return (await readResumes()).map(publicResume);
+  }
+
+  async function getResume(id) {
+    await ensureReady();
+    return readResume(id);
+  }
+
+  async function setDefaultResume(id) {
+    await ensureReady();
+    const rows = await readResumes();
+    if (!rows.some((row) => row.id === id)) throw new Error("没有找到这份简历");
+    for (const row of rows) {
+      const next = row.id === id;
+      if (Boolean(row.isDefault) !== next) {
+        row.isDefault = next;
+        await writeResume(row);
+      }
+    }
+    return true;
+  }
+
+  async function removeResume(id) {
+    await ensureReady();
+    const current = await readResume(id);
+    if (!current) return false;
+    const db = await openDb();
+    const tx = db.transaction(RESUMES, "readwrite");
+    tx.objectStore(RESUMES).delete(id);
+    await transactionDone(tx);
+    db.close();
+    if (current.isDefault) {
+      const [next] = await readResumes();
+      if (next) await setDefaultResume(next.id);
+    }
+    return true;
+  }
+
+  async function saveAdvice(result) {
+    await ensureReady();
+    const record = { ...result, id: result.task };
+    const db = await openDb();
+    const tx = db.transaction(ADVICE, "readwrite");
+    tx.objectStore(ADVICE).put(record);
+    await transactionDone(tx);
+    db.close();
+    return record;
+  }
+
+  async function listAdvice() {
+    await ensureReady();
+    const db = await openDb();
+    const tx = db.transaction(ADVICE, "readonly");
+    const rows = await requestToPromise(tx.objectStore(ADVICE).getAll());
+    await transactionDone(tx);
+    db.close();
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }
+
   root.BossJdDB = {
     DB_NAME,
     saveFavorite,
@@ -175,5 +314,13 @@
     removeFavorite,
     clearFavorites,
     recordId,
+    saveResume,
+    listResumes,
+    getResume,
+    setDefaultResume,
+    removeResume,
+    publicResume,
+    saveAdvice,
+    listAdvice,
   };
 })(globalThis);

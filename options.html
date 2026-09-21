@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>简历和模型</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>简历和模型</h1>
+        <p>简历保存在本机。模型地址、模型和密钥也只写在这个浏览器里，不会放进插件文件。</p>
+      </header>
+
+      <section class="card" id="model-card">
+        <h2>模型</h2>
+        <p class="hint">使用兼容 OpenAI Chat Completions 的接口。地址填到 <code>/v1</code> 即可，插件会自己请求 <code>/chat/completions</code>。</p>
+        <label>
+          接口地址
+          <input id="base-url" type="url" autocomplete="off" placeholder="https://example.com/v1" />
+        </label>
+        <label>
+          模型名称
+          <input id="model" type="text" autocomplete="off" placeholder="填写服务商提供的模型名" />
+        </label>
+        <label>
+          API 密钥
+          <input id="api-key" type="password" autocomplete="off" placeholder="粘贴你的 API 密钥" />
+        </label>
+        <div class="row">
+          <button id="save-model" type="button" class="primary">保存并授权</button>
+          <button id="test-model" type="button">测试连接</button>
+        </div>
+        <p class="status" id="model-status"></p>
+      </section>
+
+      <section class="card">
+        <h2>简历</h2>
+        <p class="hint">可以保存多份。填写当前招聘页时使用标成「默认」的那一份。插件只把内容写入表单，不会替你点提交。</p>
+        <div class="row">
+          <label class="file">
+            上传 txt / md / pdf / docx
+            <input id="resume-file" type="file" multiple accept=".txt,.md,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          </label>
+        </div>
+        <label>
+          简历名称
+          <input id="resume-name" type="text" maxlength="80" placeholder="例如：前端-张三" />
+        </label>
+        <label>
+          正文
+          <textarea id="resume-text" rows="10" placeholder="上传后会尽量抽出文字。PDF 如果抽不出来，把正文贴在这里。"></textarea>
+        </label>
+        <div class="row">
+          <button id="save-resume" type="button" class="primary">保存简历</button>
+          <button id="new-resume" type="button">新建一份</button>
+        </div>
+        <p class="status" id="resume-status"></p>
+        <div id="resume-list"></div>
+      </section>
+    </main>
+    <script src="db.js"></script>
+    <script src="resume-text.js"></script>
+    <script src="llm.js"></script>
+    <script src="agent.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

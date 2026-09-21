@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>填写测试</title>
+  </head>
+  <body>
+    <form id="apply">
+      <label>姓名 <input name="name" /></label>
+      <label>邮箱 <input name="email" type="email" /></label>
+      <label>手机 <input name="phone" /></label>
+      <label>学历
+        <select name="degree">
+          <option value="">请选择</option>
+          <option>本科</option>
+          <option>硕士</option>
+        </select>
+      </label>
+      <label>性别
+        <select name="gender">
+          <option value="">请选择</option>
+          <option>男</option>
+          <option>女</option>
+        </select>
+      </label>
+      <input type="file" name="resume" accept=".pdf,.docx" />
+      <button type="submit">提交</button>
+    </form>
+    <script>
+      globalThis.chrome = {
+        storage: { local: { get: async () => ({}) } },
+        permissions: { contains: async () => false },
+      };
+      document.getElementById("apply").addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.body.dataset.submitted = "1";
+      });
+    </script>
+    <script src="/llm.js"></script>
+    <script src="/agent.js"></script>
+    <script src="/fill.js"></script>
+    <script src="/resume-text.js"></script>
+  </body>
+</html>

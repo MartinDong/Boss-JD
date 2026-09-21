@@ -1,0 +1,57 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #1c1917;
+  background: #fafaf9;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 28px 20px 48px; }
+header h1 { margin: 0; font-size: 22px; }
+header p, .hint { color: #78716c; font-size: 13px; line-height: 1.55; }
+.card {
+  margin-top: 16px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 14px;
+  padding: 16px;
+}
+h2 { margin: 0 0 8px; font-size: 16px; }
+label { display: block; margin-top: 12px; font-size: 13px; font-weight: 650; }
+input, textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 400;
+  color: #1c1917;
+  background: #fff;
+}
+textarea { resize: vertical; line-height: 1.55; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+button, .file {
+  border: 1px solid #d6d3d1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+button.primary { background: #0f766e; color: #fff; border-color: #0f766e; }
+.file input { display: none; }
+.status { min-height: 18px; margin: 10px 0 0; font-size: 13px; color: #0f766e; }
+.resume {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #e7e5e4;
+}
+.resume strong { display: block; font-size: 14px; }
+.resume p { margin: 4px 0 0; color: #78716c; font-size: 12px; line-height: 1.45; }
+.resume .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.badge { color: #0f766e; font-weight: 650; }
+code { font-size: 12px; }

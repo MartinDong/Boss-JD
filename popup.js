@@ -190,6 +190,70 @@ function isJobPage(url) {
   return /^https:\/\/www\.zhipin\.com\/job_detail\//.test(url || "");
 }
 
+function renderTools() {
+  const card = el("section", "card");
+  const row = el("div", "row");
+  const settings = el("button", "", "简历和模型");
+  settings.type = "button";
+  settings.addEventListener("click", () => chrome.runtime.openOptionsPage());
+  const coach = el("button", "", "求职建议");
+  coach.type = "button";
+  coach.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("coach.html") });
+  });
+  const fill = el("button", "primary", "填写当前页面");
+  fill.type = "button";
+  const status = el("p", "toast", "");
+  fill.addEventListener("click", () => {
+    fill.disabled = true;
+    fillActiveTab(status).catch((error) => {
+      status.textContent = error.message || "填写失败";
+    }).finally(() => {
+      fill.disabled = false;
+    });
+  });
+  row.append(settings, coach, fill);
+  card.append(row, el("p", "hint", "求职建议会对照你的目标和收藏岗位。填写只写入当前页面，不会替你点提交。"), status);
+  return card;
+}
+
+async function fillActiveTab(status) {
+  const tab = await currentTab();
+  if (!tab?.id || !/^https?:/i.test(tab.url || "")) {
+    status.textContent = "请先打开招聘网站的申请页。";
+    return;
+  }
+  status.textContent = "正在读取表单…";
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["fill.js"],
+  });
+  const [collected] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => globalThis.BossJdFill.collectFields(),
+  });
+  const page = collected?.result;
+  if (!page || page.blocked || (!page.fields?.length && !page.hasFile)) {
+    status.textContent = page?.blocked ? "页面还在安全验证，请先手动完成。" : "这一页没有可填写的空表单。";
+    return;
+  }
+  const response = await chrome.runtime.sendMessage({
+    type: "BJD_AGENT",
+    op: "plan",
+    fields: page.fields,
+    hasFile: page.hasFile,
+  });
+  if (!response?.ok) throw new Error(response?.error || "填写失败");
+  const [applied] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: (payload) => globalThis.BossJdFill.applyPlan(payload),
+    args: [response.result],
+  });
+  const result = applied?.result || { filled: 0, uploaded: false };
+  const note = response.result?.note ? ` ${response.result.note}` : "";
+  status.textContent = `已填写 ${result.filled} 项。${result.uploaded ? "简历文件已放进上传框。" : ""}${note}请自己检查后再提交。`;
+}
+
 async function readJob(tab) {
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "BJD_EXTRACT" });
@@ -199,7 +263,7 @@ async function readJob(tab) {
   }
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    files: ["extract.js", "content.js"],
+    files: ["extract.js", "resume-text.js", "fill.js", "content.js"],
   });
   const [injected] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -210,7 +274,7 @@ async function readJob(tab) {
 
 async function boot() {
   const app = document.getElementById("app");
-  app.replaceChildren();
+  app.replaceChildren(renderTools());
   const jobs = await db.listFavorites().catch(() => []);
   let tab;
   try {
@@ -223,7 +287,7 @@ async function boot() {
     const card = el("section", "card");
     card.append(
       el("p", "status", "当前标签不是 BOSS直聘的岗位详情页。"),
-      el("p", "hint", "请先打开 zhipin.com/job_detail/ 开头的职位页。若页面停在安全验证，先手动完成验证。")
+      el("p", "hint", "收藏和提取需要打开 zhipin.com/job_detail/ 开头的职位页。其他招聘网站可以用上面的「填写当前页面」。若页面停在安全验证，先手动完成验证。")
     );
     app.append(card, renderSaved(jobs));
     return;
