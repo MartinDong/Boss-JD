@@ -7,6 +7,7 @@ const modelInput = document.getElementById("model");
 const apiKeyInput = document.getElementById("api-key");
 const modelStatus = document.getElementById("model-status");
 const resumeName = document.getElementById("resume-name");
+const resumeFocus = document.getElementById("resume-focus");
 const resumeText = document.getElementById("resume-text");
 const resumeStatus = document.getElementById("resume-status");
 const resumeList = document.getElementById("resume-list");
@@ -24,6 +25,7 @@ function resetEditor() {
   editingId = "";
   editingFile = undefined;
   resumeName.value = "";
+  resumeFocus.value = "";
   resumeText.value = "";
   fileInput.value = "";
 }
@@ -51,6 +53,7 @@ function renderResume(resume) {
     editingId = resume.id;
     editingFile = undefined;
     resumeName.value = resume.name || "";
+    resumeFocus.value = resume.focus || "";
     resumeText.value = resume.text || "";
     say(resumeStatus, "正在编辑。不重新上传文件的话，原来的附件会保留。");
   });
@@ -203,6 +206,7 @@ document.getElementById("save-resume").addEventListener("click", async () => {
   const saved = await db.saveResume({
     id: editingId || undefined,
     name: name || fileInput.dataset.filename || "未命名简历",
+    focus: resumeFocus.value,
     filename: editingFile ? fileInput.dataset.filename || "" : undefined,
     mime: editingFile ? fileInput.dataset.mime || "application/octet-stream" : undefined,
     text,

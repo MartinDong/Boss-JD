@@ -13,6 +13,7 @@
         <p id="count">正在读取本地数据库…</p>
       </div>
       <div class="row">
+        <button id="import" type="button">导入岗位</button>
         <button id="export-md" type="button">导出 Markdown</button>
         <button id="export-json" type="button">导出 JSON</button>
         <button id="clear" class="ghost" type="button">清空</button>
@@ -20,6 +21,31 @@
     </header>
     <main>
       <input id="query" type="search" placeholder="搜索职位、公司或原始链接" />
+      <div class="chips" id="chips">
+        <button type="button" class="chip" data-filter="" aria-pressed="true">全部</button>
+        <button type="button" class="chip" data-filter="已投" aria-pressed="false">已投</button>
+        <button type="button" class="chip" data-filter="约面" aria-pressed="false">约面</button>
+        <button type="button" class="chip" data-filter="终面" aria-pressed="false">终面</button>
+        <button type="button" class="chip" data-filter="挂了" aria-pressed="false">挂了</button>
+        <button type="button" class="chip" data-filter="拿offer" aria-pressed="false">拿offer</button>
+      </div>
+      <div id="manual-form" hidden>
+        <label>公司 <input id="m-company" type="text" placeholder="例如：示例科技" /></label>
+        <div class="split">
+          <label>职位 <input id="m-title" type="text" placeholder="例如：前端开发" /></label>
+          <label>薪资（选填） <input id="m-salary" type="text" /></label>
+        </div>
+        <div class="split">
+          <label>城市（选填） <input id="m-location" type="text" /></label>
+          <label>链接（选填） <input id="m-url" type="text" placeholder="以 http 开头" /></label>
+        </div>
+        <label>正文 <textarea id="m-desc" rows="8" placeholder="把职位描述整段贴进来"></textarea></label>
+        <div class="row">
+          <button id="m-save" class="primary" type="button">保存到收藏</button>
+          <button id="m-cancel" type="button">取消</button>
+        </div>
+        <p class="status" id="m-status"></p>
+      </div>
       <div id="list"></div>
     </main>
     <script src="db.js"></script>

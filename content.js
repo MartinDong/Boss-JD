@@ -221,6 +221,48 @@
         .fav-detail { margin-top: 8px; }
         .fav-detail .desc { margin-top: 8px; }
         .resume { padding: 10px 0; border-bottom: 1px solid #e7e5e4; }
+        .list-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .list-tools .chip { cursor: pointer; }
+        .list-tools .chip[aria-pressed="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
+        .list-tools > button {
+          border: 1px solid #d6d3d1;
+          background: #fff;
+          border-radius: 8px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .track { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .track select, .track input {
+          border: 1px solid #d6d3d1;
+          border-radius: 8px;
+          padding: 5px 8px;
+          font-size: 12px;
+          font-family: inherit;
+        }
+        .track input[type="text"] { flex: 1; min-width: 120px; }
+        .track button {
+          border: 1px solid #0f766e;
+          background: #fff;
+          color: #0f766e;
+          border-radius: 8px;
+          padding: 5px 10px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .manual-form label { display: block; margin-top: 10px; font-size: 13px; font-weight: 650; }
+        .manual-form input, .manual-form textarea {
+          display: block;
+          width: 100%;
+          margin-top: 4px;
+          border: 1px solid #d6d3d1;
+          border-radius: 8px;
+          padding: 7px 9px;
+          font: inherit;
+          font-weight: 400;
+        }
+        .manual-form .primary { margin-top: 12px; background: #0f766e; color: #fff; border-color: #0f766e; padding: 8px 12px; cursor: pointer; border-radius: 8px; }
+        .badge { color: #0f766e; font-weight: 650; }
         .resume strong { display: block; font-size: 14px; }
         .resume .meta { margin: 4px 0 0; color: #78716c; font-size: 12px; line-height: 1.45; }
         .resume .row, .upload-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -339,7 +381,7 @@
       else openPanel(shadow);
     });
     shadow.getElementById("close")?.addEventListener("click", () => {
-      if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes") showList(shadow);
+      if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes" || shadow.__bjdMode === "manual") showList(shadow);
       else closePanel(shadow);
     });
     shadow.getElementById("refresh")?.addEventListener("click", () => {
@@ -372,6 +414,14 @@
     if (mode === "resumes") {
       if (title) title.textContent = "我的简历";
       if (sub) sub.textContent = "默认简历用于填写当前页";
+      if (close) close.textContent = "返回列表";
+      if (refresh) refresh.hidden = true;
+      if (resumes) resumes.hidden = true;
+      return;
+    }
+    if (mode === "manual") {
+      if (title) title.textContent = "导入岗位";
+      if (sub) sub.textContent = "粘贴其他网站的职位描述";
       if (close) close.textContent = "返回列表";
       if (refresh) refresh.hidden = true;
       if (resumes) resumes.hidden = true;
@@ -548,8 +598,39 @@
       foot.replaceChildren();
     }
     body.replaceChildren();
+    const toolbar = document.createElement("div");
+    toolbar.className = "list-tools";
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    ["全部", "已投", "约面", "终面", "挂了", "拿offer"].forEach((label, index) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = label;
+      chip.dataset.filter = index === 0 ? "" : label;
+      chip.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+      chip.addEventListener("click", () => {
+        chips.querySelectorAll(".chip").forEach((node) => node.setAttribute("aria-pressed", node === chip ? "true" : "false"));
+        const wanted = chip.dataset.filter;
+        body.querySelectorAll(".fav").forEach((item) => {
+          item.hidden = Boolean(wanted) && item.dataset.status !== wanted;
+        });
+      });
+      chips.append(chip);
+    });
+    const importBtn = document.createElement("button");
+    importBtn.type = "button";
+    importBtn.textContent = "导入岗位";
+    importBtn.addEventListener("click", () => {
+      showManualForm(shadow);
+    });
+    toolbar.append(chips, importBtn);
+    body.append(toolbar);
     if (!jobs.length) {
-      renderListMessage(shadow, "还没有收藏。点右上角「提取当前岗位」，可以把这一页放进列表。");
+      const empty = document.createElement("p");
+      empty.className = "status";
+      empty.textContent = "还没有收藏。点右上角「提取当前岗位」，或点「导入岗位」手动添加。";
+      body.append(empty);
       return;
     }
     const count = document.createElement("p");
@@ -559,9 +640,71 @@
     jobs.forEach((job) => body.append(renderFavoriteItem(body, job)));
   }
 
+  function showManualForm(shadow) {
+    const root = shadow?.getElementById?.("shell") ? shadow : liveHost()?.shadowRoot;
+    if (!root) return;
+    setMode(root, "manual");
+    const body = root.getElementById("body");
+    const foot = root.getElementById("foot");
+    if (!body) return;
+    if (foot) {
+      foot.hidden = true;
+      foot.replaceChildren();
+    }
+    body.replaceChildren();
+    const form = document.createElement("div");
+    form.className = "manual-form";
+    const make = (label, tag, placeholder) => {
+      const labelNode = document.createElement("label");
+      labelNode.textContent = label;
+      const input = document.createElement(tag === "textarea" ? "textarea" : "input");
+      if (tag !== "textarea") input.type = "text";
+      else input.rows = 8;
+      input.placeholder = placeholder || "";
+      labelNode.append(input);
+      form.append(labelNode);
+      return input;
+    };
+    const company = make("公司", "input", "例如：示例科技");
+    const title = make("职位", "input", "例如：前端开发");
+    const salary = make("薪资（选填）", "input", "例如：20-40K");
+    const location = make("城市（选填）", "input", "例如：北京");
+    const url = make("链接（选填）", "input", "以 http 开头");
+    const description = make("正文", "textarea", "把职位描述整段贴进来");
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "primary";
+    save.textContent = "保存到收藏";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await extensionRequest("BJD_DB", "manual", {
+          job: {
+            company: company.value,
+            title: title.value,
+            salary: salary.value,
+            location: location.value,
+            url: url.value,
+            description: description.value,
+          },
+        });
+        await showList(root);
+      } catch (error) {
+        save.disabled = false;
+        const warn = document.createElement("p");
+        warn.className = "note";
+        warn.textContent = error.message || "保存失败";
+        form.append(warn);
+      }
+    });
+    form.append(save);
+    body.append(form);
+  }
+
   function renderFavoriteItem(body, job) {
     const item = document.createElement("article");
     item.className = "fav";
+    item.dataset.status = job.applyStatus || "";
     const top = document.createElement("div");
     top.className = "fav-top";
     const main = document.createElement("button");
@@ -577,6 +720,7 @@
     detail.className = "fav-detail";
     detail.hidden = true;
     globalThis.BossJdExtract?.appendDetails(detail, job);
+    detail.append(buildTrackingRow(job));
     main.addEventListener("click", () => {
       const willOpen = detail.hidden;
       body.querySelectorAll(".fav-detail").forEach((node) => {
@@ -587,6 +731,12 @@
       main.setAttribute("aria-expanded", willOpen ? "true" : "false");
     });
     top.append(main);
+    if (job.source === "manual") {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = "手动";
+      top.append(badge);
+    }
     if (job.url) {
       const link = document.createElement("a");
       link.className = "open-job";
@@ -598,6 +748,52 @@
     }
     item.append(top, detail);
     return item;
+  }
+
+  function buildTrackingRow(job) {
+    const wrap = document.createElement("div");
+    wrap.className = "track";
+    const status = document.createElement("select");
+    status.setAttribute("aria-label", "投递状态");
+    ["", "已投", "约面", "终面", "挂了", "拿offer"].forEach((label) => {
+      const option = document.createElement("option");
+      option.value = label;
+      option.textContent = label || "未投";
+      status.append(option);
+    });
+    status.value = job.applyStatus || "";
+    const date = document.createElement("input");
+    date.type = "date";
+    date.setAttribute("aria-label", "日期");
+    date.value = job.applyAt || "";
+    const note = document.createElement("input");
+    note.type = "text";
+    note.placeholder = "一句话备注";
+    note.value = job.applyNote || "";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.textContent = "记录";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await extensionRequest("BJD_DB", "track", {
+          id: job.id,
+          applyStatus: status.value,
+          applyAt: date.value,
+          applyNote: note.value,
+        });
+        save.textContent = "已记录";
+        setTimeout(() => {
+          save.textContent = "记录";
+        }, 1200);
+      } catch (error) {
+        save.textContent = error.message.slice(0, 12) || "失败";
+      } finally {
+        save.disabled = false;
+      }
+    });
+    wrap.append(status, date, note, save);
+    return wrap;
   }
 
   function render(shadow, job) {
@@ -921,7 +1117,7 @@
     if (event.key !== "Escape" || !panelOpen) return;
     const shadow = liveHost()?.shadowRoot;
     if (!shadow) return;
-    if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes") showList(shadow);
+    if (shadow.__bjdMode === "job" || shadow.__bjdMode === "resumes" || shadow.__bjdMode === "manual") showList(shadow);
     else closePanel(shadow);
   });
 

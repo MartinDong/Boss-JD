@@ -16,11 +16,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     ? handleDb(message)
     : message.type === "BJD_RESUME"
       ? handleResume(message)
-      : message.type === "BJD_AGENT"
-        ? handleAgent(message)
-        : message.type === "BJD_COACH"
-          ? globalThis.BossJdCoach.handle(message)
-          : null;
+        : message.type === "BJD_AGENT"
+          ? handleAgent(message)
+          : message.type === "BJD_INTERVIEW"
+            ? handleInterview(message)
+            : message.type === "BJD_COACH"
+              ? globalThis.BossJdCoach.handle(message)
+              : null;
   if (!task) return;
   task
     .then((result) => sendResponse({ ok: true, result }))
@@ -34,6 +36,12 @@ async function handleDb(message) {
   if (message.op === "list") return db.listFavorites();
   if (message.op === "get") return db.getFavorite(message.id);
   if (message.op === "remove") return db.removeFavorite(message.id);
+  if (message.op === "track") return db.updateTracking(message.id, {
+    applyStatus: message.applyStatus,
+    applyAt: message.applyAt,
+    applyNote: message.applyNote,
+  });
+  if (message.op === "manual") return db.saveManualJob(message.job);
   if (message.op === "clear") {
     await db.clearFavorites();
     return true;
@@ -87,4 +95,12 @@ async function handleAgent(message) {
   const plan = await globalThis.BossJdAgent.plan(full.text, fields);
   const file = message.hasFile ? await resumeFile(chosen.id) : null;
   return { ...plan, file, resumeName: chosen.name };
+}
+
+async function handleInterview(message) {
+  const db = globalThis.BossJdDB;
+  if (message.op === "list") return db.listInterviews();
+  if (message.op === "save") return db.saveInterview(message.record);
+  if (message.op === "remove") return db.removeInterview(message.id);
+  throw new Error("未知的复盘操作");
 }

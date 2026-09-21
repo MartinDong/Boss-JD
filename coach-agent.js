@@ -63,6 +63,7 @@
       experience: job.experience || "",
       education: job.education || "",
       industry: job.industry || "",
+      source: job.source === "manual" ? "手动" : "BOSS",
       tags: Array.isArray(job.tags) ? job.tags.slice(0, 12) : [],
       description: String(job.description || "").slice(0, 800),
     };
@@ -79,7 +80,7 @@
     return target;
   }
 
-  async function buildContext(jobIds) {
+  async function buildContext(jobIds, resumeId) {
     const db = root.BossJdDB;
     const target = await readTarget();
     if (!targetReady(target)) throw new Error("请先填写目标职位，或写上必须满足的条件。");
@@ -92,24 +93,65 @@
       .map((job) => ({ job, score: scoreJob(job, target) }))
       .sort((a, b) => b.score - a.score || String(b.job.savedAt).localeCompare(String(a.job.savedAt)));
     const selected = ranked.slice(0, JOB_LIMIT).map((item) => item.job);
+    const interviews = await db.listInterviews();
+    const history = recentOutcomes(interviews, chosen)
+      .map((entry) => ({
+        source: entry.source,
+        company: entry.company,
+        date: entry.date,
+        questions: entry.questions || [],
+        outcome: entry.outcome,
+        feedback: entry.feedback,
+        takeaway: entry.takeaway,
+      }));
     const resumes = await db.listResumes();
-    const resume = resumes.find((item) => item.isDefault) || resumes[0] || null;
+    const resume = (resumeId && resumes.find((item) => item.id === resumeId))
+      || resumes.find((item) => item.isDefault)
+      || resumes[0]
+      || null;
     const full = resume ? await db.getResume(resume.id) : null;
+    const jobs = selected.map(briefJob);
+    selected.forEach((job, index) => {
+      jobs[index].applyStatus = job.applyStatus || "";
+    });
     return {
       target,
-      jobs: selected.map(briefJob),
+      jobs,
       omitted: Math.max(0, chosen.length - selected.length),
       resumeName: resume?.name || "",
+      resumeFocus: resume?.focus || "",
       resumeText: String(full?.text || "").slice(0, 6000),
+      history,
+      sourceByJob: new Map(selected.map((job) => [job.id, job.source === "manual" ? "手动" : "BOSS"])),
     };
+  }
+  function recentOutcomes(interviews, chosen) {
+    const failed = chosen.filter((job) => job.applyStatus === "挂了")
+      .map((job) => ({
+        source: `投递（${job.applyNote || "无备注"}）`,
+        company: job.company || job.title,
+        date: job.applyAt || "",
+        questions: [],
+        outcome: "挂",
+        feedback: job.applyNote || "",
+        takeaway: "",
+      }));
+    return interviews.slice(0, 3).concat(failed).slice(0, 3);
   }
 
   function present(context, analysis, sections) {
     const modelJobs = new Map((Array.isArray(analysis?.jobs) ? analysis.jobs : []).map((job) => [String(job.id || ""), job]));
+    const modelMatrix = Array.isArray(analysis?.matrix) ? analysis.matrix : [];
     return {
       summary: String(analysis?.summary || "").trim().slice(0, 500),
       advantages: strings(analysis?.advantages),
       gaps: strings(analysis?.gaps),
+      matrix: modelMatrix.slice(0, 24).map((row) => ({
+        requirement: String(row.requirement || "").trim().slice(0, 60),
+        kind: row.kind === "加分项" ? "加分项" : "必备项",
+        met: row.met === true || row.met === "满足" ? "满足" : row.met === false || row.met === "不满足" ? "不满足" : "部分",
+        evidence: String(row.evidence || "").trim().slice(0, 200),
+      })).filter((row) => row.requirement),
       jobs: context.jobs.map((job) => {
         const extra = modelJobs.get(job.id) || {};
         const fit = ["高", "中", "低"].includes(extra.fit) ? extra.fit : "待看";
@@ -120,12 +162,15 @@
           salary: job.salary,
           location: job.location,
           url: context.urls?.get(job.id) || "",
+          source: context.sourceByJob?.get(job.id) || "",
+          applied: job.applyStatus || "",
           fit,
           why: String(extra.why || "这一条没有单独写出匹配理由。").trim().slice(0, 300),
           advantages: strings(extra.advantages, 4),
           gaps: strings(extra.gaps, 4),
         };
       }),
+      referencedHistory: (context.history || []).map((entry) => `${entry.date || "日期未知"} ${entry.company}（${entry.outcome}）`),
       sections: (Array.isArray(sections) ? sections : []).slice(0, 4).map((section) => ({
         heading: String(section.heading || "建议").trim().slice(0, 40),
         items: (Array.isArray(section.items) ? section.items : []).slice(0, 6).map((item) => ({
@@ -140,14 +185,16 @@
     const data = await root.BossJdLlm.askJson(settings, [
       {
         role: "system",
-        content: "你是求职分析助手。只依据给定的求职目标、简历原文和岗位摘录。没有简历时不要猜测经历。优势必须能从简历或岗位要求里指出来。禁止编造公司、项目、年限和数字。只返回 JSON：{\"summary\":\"\",\"advantages\":[\"\"],\"gaps\":[\"\"],\"jobs\":[{\"id\":\"\",\"fit\":\"高|中|低\",\"why\":\"\",\"advantages\":[\"\"],\"gaps\":[\"\"]}]}",
+        content: "你是求职分析助手。只依据给定的求职目标、简历原文和岗位摘录。没有简历时不要猜测经历。优势必须能从简历或岗位要求里指出来。禁止编造公司、项目、年限和数字。matrix 是把各岗位要求拆出的对比：requirement 是一句要求，kind 只能是 必备项 或 加分项，met 只能是 满足、部分 或 不满足，evidence 指出依据来自简历哪一行或岗位哪一句，没有依据就写 不满足。有历史面试复盘时，优先据此判断重复出现的差距。只返回 JSON：{\"summary\":\"\",\"advantages\":[\"\"],\"gaps\":[\"\"],\"matrix\":[{\"requirement\":\"\",\"kind\":\"必备项\",\"met\":\"满足\",\"evidence\":\"\"}],\"jobs\":[{\"id\":\"\",\"fit\":\"高|中|低\",\"why\":\"\",\"advantages\":[\"\"],\"gaps\":[\"\"]}]}",
       },
       {
         role: "user",
         content: JSON.stringify({
           target: context.target,
           resumeName: context.resumeName,
+          resumeFocus: context.resumeFocus,
           resumeText: context.resumeText,
+          history: context.history,
           jobs: context.jobs,
         }),
       },
@@ -167,6 +214,7 @@
           task,
           target: context.target,
           resumeText: context.resumeText,
+          history: context.history,
           analysis,
         }),
       },
@@ -174,11 +222,11 @@
     return Array.isArray(data?.sections) ? data.sections : [];
   }
 
-  async function advise(task, jobIds) {
+  async function advise(task, jobIds, resumeId) {
     if (!TASKS[task]) throw new Error("未知的建议类型");
     const settings = await root.BossJdLlm.readSettings();
     if (!root.BossJdLlm.configured(settings)) throw new Error("请先在「简历和模型」里填写并授权模型。");
-    const context = await buildContext(jobIds);
+    const context = await buildContext(jobIds, resumeId);
     const favorites = await root.BossJdDB.listFavorites();
     context.urls = new Map(favorites.map((job) => [job.id, job.url || ""]));
     const analysis = await analyze(settings, context);
@@ -205,7 +253,8 @@
     if (message.op === "getTarget") return readTarget();
     if (message.op === "saveTarget") return writeTarget(message.target);
     if (message.op === "list") return root.BossJdDB.listAdvice();
-    if (message.op === "advise") return advise(message.task, message.jobIds);
+    if (message.op === "resumes") return root.BossJdDB.listResumes();
+    if (message.op === "advise") return advise(message.task, message.jobIds, message.resumeId);
     throw new Error("未知的建议操作");
   }
 

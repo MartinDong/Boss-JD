@@ -91,3 +91,51 @@ a.primary-link {
   border-radius: 12px;
   color: #78716c;
 }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.chip[aria-pressed="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
+#manual-form {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 14px;
+}
+#manual-form label { display: block; margin-top: 10px; font-size: 13px; font-weight: 650; }
+#manual-form input, #manual-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 400;
+}
+#manual-form textarea { resize: vertical; line-height: 1.55; }
+#manual-form .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#manual-form .status { min-height: 16px; margin: 8px 0 0; font-size: 13px; color: #0f766e; }
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #115e59;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+.track { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+.track select, .track input {
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.track input[type="text"] { flex: 1; min-width: 140px; }
+.track button {
+  border: 1px solid #0f766e;
+  color: #0f766e;
+  background: #fff;
+}
+.status-warn { color: #b91c1c; }
+@media (max-width: 640px) { #manual-form .split { grid-template-columns: 1fr; } }

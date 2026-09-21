@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BOSS岗位提取",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "提取 BOSS直聘岗位，管理简历，并按你的求职目标对收藏岗位给出建议。",
   "permissions": ["storage", "scripting", "activeTab"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],

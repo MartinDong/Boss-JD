@@ -11,13 +11,21 @@
       <header>
         <div>
           <h1>求职建议</h1>
-          <p>先写下你想找的岗位，再从收藏里挑选要比较的职位。建议只依据这些材料和默认简历，不会自动投递。</p>
+          <p>先写下你想找的岗位，再从收藏里挑选要比较的职位。建议只依据这些材料和所选简历，不会自动投递。</p>
         </div>
-        <button id="open-settings" type="button">模型配置</button>
+        <div class="head-side">
+          <button id="open-settings" type="button">模型配置</button>
+        </div>
       </header>
       <div class="layout">
         <section class="card">
           <h2>期望条件</h2>
+          <div class="picker-row" id="resume-picker" style="display:none">
+            <label>用哪份简历
+              <select id="resume-select" aria-label="选择简历"></select>
+            </label>
+            <p class="aside" id="resume-aside"></p>
+          </div>
           <label>目标职位 <input id="role" type="text" maxlength="120" placeholder="例如：前端开发" /></label>
           <label>城市 <input id="cities" type="text" maxlength="120" placeholder="北京、上海，多个用顿号分开" /></label>
           <div class="split">
@@ -50,8 +58,11 @@
           <p class="status" id="status"></p>
           <div id="result"></div>
         </section>
-      </div>
-    </main>
+        <section class="card" id="interview-card">
+          <h2>面试复盘</h2>
+          <p class="hint">记录每次面试的岗位、被问的问题和结果。最近 3 条会用于生成建议。也可以只手填公司和职位。</p>
+        </section>
+      </div>    </main>
     <script src="coach.js"></script>
   </body>
 </html>

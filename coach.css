@@ -6,14 +6,14 @@ body {
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 56px; }
-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+header { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
 h1 { margin: 0; font-size: 22px; }
 h2 { margin: 0 0 8px; font-size: 16px; }
 header p, .hint, .meta { color: #78716c; font-size: 13px; line-height: 1.55; }
-.layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+.layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
 .card { background: #fff; border: 1px solid #e7e5e4; border-radius: 14px; padding: 16px; }
 label { display: block; margin-top: 12px; font-size: 13px; font-weight: 650; }
-input, textarea, select {
+input:not([type="checkbox"]):not([type="radio"]), textarea, select {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -42,9 +42,17 @@ button, .link {
 button.primary { background: #0f766e; color: #fff; border-color: #0f766e; }
 button:disabled { cursor: default; opacity: 0.6; }
 .status { min-height: 18px; margin: 10px 0 0; font-size: 13px; color: #0f766e; }
-.pick { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid #f5f5f4; font-size: 13px; font-weight: 400; }
+.pick { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-top: 1px solid #f5f5f4; font-size: 13px; font-weight: 400; cursor: pointer; }
+.pick:first-child { border-top: 0; }
+.pick:hover { background: #f5f5f4; }
+.pick input[type="checkbox"] { width: 15px; height: 15px; margin: 2px 0 0; flex-shrink: 0; accent-color: #0f766e; }
 .pick strong { display: block; }
-.result { margin-top: 16px; }
+.pick .meta { display: block; margin-top: 2px; }
+.pick-head { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin: 2px 0 4px; }
+.pick-head .count { font-size: 12px; color: #78716c; }
+.pick-all { display: flex; align-items: center; gap: 6px; margin-top: 0; font-weight: 400; font-size: 12px; color: #44403c; cursor: pointer; }
+.pick-all input[type="checkbox"] { width: 14px; height: 14px; margin: 0; accent-color: #0f766e; }
+.result { margin-top: 16px; border-top: 1px solid #e7e5e4; padding-top: 14px; }
 .summary { margin: 0; font-size: 15px; line-height: 1.6; }
 .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .lists h3, .section h3, .job h3 { margin: 0 0 6px; font-size: 13px; }
@@ -58,6 +66,38 @@ button:disabled { cursor: default; opacity: 0.6; }
 .fit-低 { background: #fee2e2; color: #991b1b; }
 .section { margin-top: 16px; }
 .warn { color: #b45309; }
+.picker-row { display: flex; gap: 10px; align-items: center; }
+.picker-row label { flex: 1; margin-top: 4px; }
+.picker-row .aside { margin: 0; font-weight: 400; color: #78716c; font-size: 12px; }
+.matrix { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+.matrix th, .matrix td { border: 1px solid #e7e5e4; padding: 5px 7px; text-align: left; vertical-align: top; line-height: 1.45; }
+.matrix th { background: #f5f5f4; }
+.matrix td:nth-child(3) { white-space: nowrap; }
+tr.met-满足 td:nth-child(3) { color: #0f766e; }
+tr.met-不满足 td:nth-child(3) { color: #b91c1c; }
+tr.met-部分 td:nth-child(3) { color: #b45309; }
+.applied { color: #78716c; font-size: 12px; margin-right: 8px; }
+#interview-card { max-height: 90vh; overflow: auto; }
+.interview-form input, .interview-form select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.interview-form .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.interview-form .split input, .interview-form .split select { margin-top: 0; }
+.question-list { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.5; color: #44403c; }
+.interview-form hr { margin: 14px 0; border: 0; border-top: 1px solid #e7e5e4; }
+.interview { padding: 10px 0; border-bottom: 1px solid #f5f5f4; font-size: 13px; }
+.interview .job-top { margin-bottom: 4px; }
+.interview .fit { margin-left: 0; }
+.interview button { margin-top: 6px; padding: 4px 10px; }
+.outcome-过 { background: #ccfbf1; color: #115e59; }
+.outcome-挂 { background: #fee2e2; color: #991b1b; }
+.outcome-没回音 { background: #f5f5f4; color: #78716c; }
 @media (max-width: 800px) {
-  .layout, .lists, .split { grid-template-columns: 1fr; }
+  .layout, .lists, .split, .interview-form .split { grid-template-columns: 1fr; }
 }
